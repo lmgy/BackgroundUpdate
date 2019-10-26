@@ -1,0 +1,2 @@
+include ':app', ':bgupdate'
+rootProject.name='BackgroundUpdate'
