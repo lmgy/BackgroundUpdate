@@ -4,7 +4,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
@@ -22,10 +21,6 @@ import static android.content.Context.BIND_AUTO_CREATE;
  * @date 2019/10/26
  */
 public class BgUpdate {
-
-    private static int TYPE = 0x00;
-    public static final int TYPE_DIALOG = 0x01;
-    public static final int TYPE_NOTIFICATION = 0x02;
 
     /**
      * 要申请的权限
@@ -51,7 +46,7 @@ public class BgUpdate {
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             //拿到后台服务代理对象
             myBinder = (DownloadService.MyBinder) iBinder;
-            myBinder.startDownload(url, filePath, TYPE);
+            myBinder.startDownload(url, filePath);
         }
 
         @Override
@@ -61,28 +56,13 @@ public class BgUpdate {
     };
 
     /**
-     * Dialog更新
-     *
-     * @param context  上下文
-     * @param url      下载链接
-     * @param filePath 文件保存路径
-     */
-    public static void updateForDialog(Context context, String url, String filePath) {
-        TYPE = TYPE_DIALOG;
-        BgUpdate.url = url;
-        BgUpdate.filePath = filePath;
-        startDownload(context);
-    }
-
-    /**
      * Notification更新
      *
      * @param context  上下文
      * @param url      下载链接
      * @param filePath 文件保存路径
      */
-    public static void updateForNotification(Context context, String url, String filePath) {
-        TYPE = TYPE_NOTIFICATION;
+    public static void updateFile(Context context, String url, String filePath) {
         BgUpdate.url = url;
         BgUpdate.filePath = filePath;
         startDownload(context);
@@ -93,7 +73,7 @@ public class BgUpdate {
      */
     private static void startDownload(Context context) {
         if (myBinder != null) {
-            myBinder.startDownload(url, filePath, TYPE);
+            myBinder.startDownload(url, filePath);
         } else {
             // 版本判断。当手机系统大于 23 时，才有必要去判断权限是否获取
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -119,6 +99,7 @@ public class BgUpdate {
 
     /**
      * 提示用户该请求权限的弹出框
+     *
      * @param context
      */
     private static void showDialogTipUserRequestPermission(final Context context) {
@@ -131,6 +112,7 @@ public class BgUpdate {
 
     /**
      * 开始提交请求权限
+     *
      * @param context
      */
     private static void startRequestPermission(Context context) {
@@ -139,6 +121,7 @@ public class BgUpdate {
 
     /**
      * 关闭服务
+     *
      * @param context 上下文
      */
     public static void closeService(Context context) {

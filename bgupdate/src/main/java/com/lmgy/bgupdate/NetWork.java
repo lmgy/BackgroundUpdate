@@ -13,7 +13,7 @@ public class NetWork {
 
     private static DownloadApi downloadApi;
 
-    public static DownloadApi getApi(ProgressListener listener) {
+    static DownloadApi getApi(ProgressListener listener) {
         if (downloadApi == null) {
             Retrofit retrofit = new Retrofit.Builder()
                     .baseUrl("https://your.api.url/")
@@ -31,7 +31,7 @@ public class NetWork {
      * @param progressListener 进度回调接口
      * @return 包装后的OkHttpClient
      */
-    public static OkHttpClient addProgressResponseListener(final ProgressListener progressListener) {
+    private static OkHttpClient addProgressResponseListener(final ProgressListener progressListener) {
         OkHttpClient.Builder client = new OkHttpClient.Builder();
         //增加拦截器
         client.addInterceptor(chain -> {

@@ -3,20 +3,14 @@ package com.lmgy.bgupdate;
 import android.annotation.TargetApi;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.ProgressDialog;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Build;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
-import android.util.Log;
-import android.view.WindowManager;
 import android.widget.Toast;
 
 import androidx.core.app.NotificationCompat;
@@ -32,7 +26,6 @@ import okhttp3.ResponseBody;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func1;
 import rx.schedulers.Schedulers;
 
 /**
@@ -40,8 +33,6 @@ import rx.schedulers.Schedulers;
  * @date 2019/10/26
  */
 public class DownloadService extends Service {
-
-    private static final String TAG = "DownloadService";
 
     /**
      * 保存文件路径
@@ -55,6 +46,8 @@ public class DownloadService extends Service {
      * MyBinder
      */
     private static MyBinder myBinder;
+    private NotificationCompat.Builder mNotifyBuilder;
+    private NotificationManager notificationManager;
 
     @Override
     public void onCreate() {
@@ -69,25 +62,21 @@ public class DownloadService extends Service {
         return myBinder;
     }
 
-    public class MyBinder extends Binder {
+    class MyBinder extends Binder {
 
         //下载进度
         private int progress;
         //用于第一次显示
         private boolean isShow = false;
-        //显示方式
-        private int SHOW_TYPE = 0;
 
         /**
          * 开始下载
          *
          * @param url      下载链接
          * @param filePath 存储路径
-         * @param type     显示类型
          */
-        public void startDownload(String url, String filePath, int type) {
+        public void startDownload(String url, String filePath) {
             DownloadService.this.filePath = filePath;
-            SHOW_TYPE = type;
             if (subscription == null) {
                 // 新线程，由 observeOn() 指定 , 对象变化
                 //下载完毕 , 存储到手机根目录
@@ -95,31 +84,18 @@ public class DownloadService extends Service {
                     int percent = (int) (section / total * 100);
                     if (!isShow) {
                         //开始下载有进度即显示通知栏
-                        if (SHOW_TYPE == BgUpdate.TYPE_DIALOG) {
-                            Message message = new Message();
-                            message.arg1 = percent;
-                            message.obj = false;
-                            handler.sendMessage(message);
-                        } else if (SHOW_TYPE == BgUpdate.TYPE_NOTIFICATION) {
-                            showNotification(percent, false);
-                        }
+                        showNotification(percent, false);
                         isShow = true;
                     } else if (percent % 5 == 0 && progress != percent) {
                         //每百分之五和旧进度与新进度不相等时,才更新一次通知栏 , 防止更新频繁
                         progress = percent;
-                        if (SHOW_TYPE == BgUpdate.TYPE_DIALOG) {
-                            Message message = new Message();
-                            message.arg1 = percent;
-                            message.obj = percent == 100;
-                            handler.sendMessage(message);
-                        } else if (SHOW_TYPE == BgUpdate.TYPE_NOTIFICATION) {
-                            if (percent == 100) {
-                                //下载完毕时 , 存储文件需要时间 , 修改进度条状态
-                                showNotification(percent, true);
-                            } else {
-                                showNotification(percent, false);
-                            }
+                        if (percent == 100) {
+                            //下载完毕时 , 存储文件需要时间 , 修改进度条状态
+                            showNotification(percent, true);
+                        } else {
+                            showNotification(percent, false);
                         }
+
                     }
                 }).downloadFile(url)   // IO 线程，由 subscribeOn() 指定 , 下载文件
                         .subscribeOn(Schedulers.io())
@@ -158,19 +134,12 @@ public class DownloadService extends Service {
                 subscription.unsubscribe();
                 subscription = null;
                 mNotifyBuilder = null;
-                if (mProgressDialog != null) {
-                    mProgressDialog.dismiss();
-                }
-                mProgressDialog = null;
                 isShow = false;
                 notificationManager.cancelAll();
             }
         }
 
     }
-
-    private NotificationCompat.Builder mNotifyBuilder;
-    private NotificationManager notificationManager;
 
     /**
      * 显示通知
@@ -200,43 +169,6 @@ public class DownloadService extends Service {
         notificationManager.notify(0, mNotifyBuilder.build());
     }
 
-    /**
-     * Dialog需要用Handler去更新
-     */
-    private Handler handler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            showDialog(msg.arg1, (Boolean) msg.obj);
-        }
-    };
-
-    private ProgressDialog mProgressDialog;
-
-    /**
-     * 显示Dialog
-     */
-    private void showDialog(int progress, boolean isDownSuccess) {
-        //创建进度对话框详细信息
-        if (mProgressDialog == null) {
-            mProgressDialog = new ProgressDialog(this);
-            mProgressDialog.setTitle("正在下载...");
-            //设置对话进度条样式为水平
-            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-            mProgressDialog.setMax(100);
-            mProgressDialog.setCancelable(false);
-            mProgressDialog.setButton("取消", (dialogInterface, i) -> {
-                dialogInterface.dismiss();
-                myBinder.cancelDownload();
-            });
-            //把TYPE_SYSTEM_ALERT改为TYPE_TOAST,是为了绕过检查
-            mProgressDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_TOAST);
-            mProgressDialog.show();//调用show方法显示进度条对话框
-        }
-        if (isDownSuccess) {
-            mProgressDialog.setTitle("等待安装 , 请稍等...");
-        }
-        mProgressDialog.setProgress(progress);
-    }
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
